@@ -8,6 +8,8 @@ import scala.collection.JavaConversions._
 
 object Import {
   val launch4j = TaskKey[File]("build-launcher", "Create launch4j wrapper")
+  val executable = SettingKey[String]("executable", "Launcher executable filename")
+  val zipFilename = SettingKey[String]("zipFilename", "Zipped filename")
 }
 
 object Launch4jPlugin extends AutoPlugin {
@@ -19,17 +21,22 @@ object Launch4jPlugin extends AutoPlugin {
 
   override val projectSettings = Seq(
     launch4j := runLaunch4j.value,
-    mainClass in launch4j := None
+    mainClass in launch4j := None,
+    zipFilename := s"${name.value}-${version.value}.zip",
+    executable := s"${name.value}.exe"
   )
 
   private def runLaunch4j: Def.Initialize[Task[File]] = Def.task {
-    val outputdir = target.value / "launch4j"
-    val configXml = outputdir / "out.xml"
-    val classpath = outputdir / "lib"
-    val executable = outputdir / "launch4j" / "launch4jc.exe"
-    val outfile = outputdir / "app.exe"
+    val outputdir = target.value / "launcher"
+    val distdir = outputdir / "build"
+    val configXml = outputdir / "launch4j.xml"
+    val classpath = distdir / "lib"
+    val launch4jExecutable = outputdir / "launch4j" / "launch4jc.exe"
+    val outfile = distdir / executable .value
 
-    outputdir.mkdirs()
+    // clean directory
+    IO.delete(outputdir)
+    distdir.mkdirs()
 
     // copy the project artifact and all dependencies to /lib
     val jars = {
@@ -40,13 +47,27 @@ object Launch4jPlugin extends AutoPlugin {
       }
     }
 
+    // package jre
+    val java = new File(Option(System.getenv("JAVA_HOME")).getOrElse {
+      throw new IllegalStateException("Missing JAVA_HOME")
+    })
+    val jre = java / "jre"
+    val jreFiles = for {
+      file <- jre.***.get //if file.isFile
+      name <- file.relativeTo(java)
+    } yield file -> name.toString
+
+    IO.copy {
+      jreFiles.map { case (file: File, path: String) => (file, distdir / path) }
+    }
+
     val conf = new Config()
     conf.setOutfile(outfile)
     conf.setDontWrapJar(true)
     conf.setClassPath {
       val paths = for {
         jar <- jars
-        relative <- jar.relativeTo(outputdir)
+        relative <- jar.relativeTo(distdir)
       } yield relative.getPath
 
       val cp = new ClassPath()
@@ -62,10 +83,10 @@ object Launch4jPlugin extends AutoPlugin {
       cp.setPaths(paths.toList)
       cp
     }
+
     conf.setJre {
-      // TODO package JRE
       val jre = new Jre()
-      jre.setMinVersion("1.8.0")
+      jre.setPath("jre")
       jre
     }
     conf.validate()
@@ -80,10 +101,17 @@ object Launch4jPlugin extends AutoPlugin {
     IO.unzipURL(url, outputdir)
 
     // run launch4j
-    val command = Process(executable.absolutePath, Seq(configXml.absolutePath))
+    val command = Process(launch4jExecutable.absolutePath, Seq(configXml.absolutePath))
     command !
 
-    // TODO zip it up
-    ???
+    val zipFile = target.value / zipFilename.value
+    // zip up distribution
+    val zipFiles = for {
+      file <- distdir.***.get
+      name <- file.relativeTo(distdir)
+    } yield file -> name.toString
+
+    IO.zip(zipFiles, zipFile)
+    zipFile
   }
 }
