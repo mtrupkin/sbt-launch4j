@@ -1,4 +1,4 @@
-package org.s4i
+package org.trupkin
 
 import java.io.File
 
@@ -16,7 +16,7 @@ object Launch4jPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   val autoImport = Import
-  import org.s4i.Launch4jPlugin.autoImport._
+  import org.trupkin.Launch4jPlugin.autoImport._
   import sbt.Keys._
 
   override val projectSettings = Seq(
