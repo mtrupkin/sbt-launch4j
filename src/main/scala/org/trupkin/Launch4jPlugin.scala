@@ -1,15 +1,19 @@
 package org.trupkin
 
-import java.io.File
+import java.io.{File, SequenceInputStream, BufferedInputStream, FileInputStream}
+import java.nio.file.Files
+import org.apache.commons.compress.archivers.sevenz._
 
 import net.sf.launch4j.config._
 import sbt._
 import scala.collection.JavaConversions._
 
 object Import {
-  val launch4j = TaskKey[File]("build-launcher", "Create launch4j wrapper")
-  val executable = SettingKey[String]("executable", "Launcher executable filename")
-  val zipFilename = SettingKey[String]("zipFilename", "Zipped filename")
+  val buildSfx = TaskKey[File]("build-sfx", "Create self extracting")
+  val buildLauncher = TaskKey[File]("build-launcher", "Create launch4j wrapper")
+
+  val launcherExecutableFilename = SettingKey[String]("launcher-executable-filename", "Launcher executable filename")
+  val sfxTargetFilename = SettingKey[String]("sxf-target-filename", "Self extracting filename")
 }
 
 object Launch4jPlugin extends AutoPlugin {
@@ -20,10 +24,11 @@ object Launch4jPlugin extends AutoPlugin {
   import sbt.Keys._
 
   override val projectSettings = Seq(
-    launch4j := runLaunch4j.value,
-    mainClass in launch4j := None,
-    zipFilename := s"${name.value}-${version.value}.zip",
-    executable := s"${name.value}.exe"
+    buildLauncher := runLaunch4j.value,
+    buildSfx := runCompress.value,
+    mainClass in buildLauncher := None,
+    sfxTargetFilename := s"${name.value}-${version.value}.exe",
+    launcherExecutableFilename := s"${name.value}.exe"
   )
 
   private def runLaunch4j: Def.Initialize[Task[File]] = Def.task {
@@ -32,7 +37,7 @@ object Launch4jPlugin extends AutoPlugin {
     val configXml = outputdir / "launch4j.xml"
     val classpath = distdir / "lib"
     val launch4jExecutable = outputdir / "launch4j" / "launch4jc.exe"
-    val outfile = distdir / executable .value
+    val outfile = distdir / launcherExecutableFilename .value
 
     // clean directory
     IO.delete(outputdir)
@@ -72,7 +77,7 @@ object Launch4jPlugin extends AutoPlugin {
 
       val cp = new ClassPath()
       cp.setMainClass {
-        (mainClass in launch4j).value getOrElse {
+        (mainClass in buildLauncher).value getOrElse {
           (discoveredMainClasses in Compile).value match {
             case Seq() => sys.error("No main classes were found")
             case Seq(single) => single
@@ -104,14 +109,55 @@ object Launch4jPlugin extends AutoPlugin {
     val command = Process(launch4jExecutable.absolutePath, Seq(configXml.absolutePath))
     command !
 
-    val zipFile = target.value / zipFilename.value
-    // zip up distribution
-    val zipFiles = for {
-      file <- distdir.***.get
-      name <- file.relativeTo(distdir)
-    } yield file -> name.toString
+    distdir
+  }
 
-    IO.zip(zipFiles, zipFile)
-    zipFile
+  private def runCompress: Def.Initialize[Task[File]] = Def.task {
+    val compressSourceDirectory = buildLauncher.value
+    val compressBaseDirectory = target.value / "compress"
+    val compressTargetDirectoryName = s"${name.value}-${version.value}"
+    val compressTargetFile = compressBaseDirectory / s"${name.value}.7z"
+    val sfxTargetFile = compressBaseDirectory / sfxTargetFilename.value
+
+    // clean directory
+    IO.delete(compressBaseDirectory)
+    compressBaseDirectory.mkdirs()
+
+    val sfxURL =  getClass.getClassLoader.getResource("sfx/windows/7z.sfx")
+
+    // compress distribution
+    val compressFiles = for {
+      file <- compressSourceDirectory.**(new SimpleFileFilter(f=>f.isFile)).get
+      filename <- file.relativeTo(compressSourceDirectory)
+    } yield file -> (new File(compressTargetDirectoryName) / filename.toString).toString
+
+    val sevenZOutput = new SevenZOutputFile(compressTargetFile)
+    sevenZOutput.setContentCompression(SevenZMethod.LZMA2)
+    for {
+      e <- compressFiles
+    } yield {
+      val entry = sevenZOutput.createArchiveEntry(e._1, e._2)
+      sevenZOutput.putArchiveEntry(entry)
+      writeEntry(sevenZOutput, e._1)
+      sevenZOutput.closeArchiveEntry()
+    }
+    sevenZOutput.close()
+
+    val sequence = new SequenceInputStream(new BufferedInputStream(sfxURL.openStream()), new BufferedInputStream(new FileInputStream(compressTargetFile)))
+    Files.copy(sequence, sfxTargetFile.toPath)
+
+    sfxTargetFile
+  }
+
+  def writeEntry(sz: SevenZOutputFile, f: File): Unit = {
+    val is = new BufferedInputStream(new FileInputStream(f))
+
+    var byte = 0
+    while (byte >= 0) {
+      byte = is.read
+      if (byte >= 0) sz.write(byte)
+    }
+
+    is.close()
   }
 }

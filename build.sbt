@@ -28,3 +28,10 @@ resolvers ++= Seq(
 libraryDependencies += ("net.sf.launch4j" % "launch4j" % "3.5.0")
   .exclude("com.ibm.icu", "icu4j")
   .exclude("abeille", "net.java.abeille")
+
+libraryDependencies ++= Seq(
+  "org.apache.commons" % "commons-compress" % "1.9",
+  "org.tukaani" % "xz" % "1.5",
+  ("net.sf.launch4j" % "launch4j" % "3.5.0")
+    .exclude("com.ibm.icu", "icu4j")
+    .exclude("abeille", "net.java.abeille"))
