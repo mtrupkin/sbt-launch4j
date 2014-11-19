@@ -28,6 +28,7 @@ object Launch4jPlugin extends AutoPlugin {
   override val projectSettings = Seq(
     buildLauncher := runLaunch4j.value,
     buildSfx := runCompress.value,
+    (target in buildLauncher) :=  target.value / "launcher",
     mainClass in buildLauncher := None,
     sfxTargetFilename := s"${name.value}-${version.value}.exe",
     launcherExecutableFilename := s"${name.value}.exe",
@@ -37,7 +38,7 @@ object Launch4jPlugin extends AutoPlugin {
   )
 
   private def runLaunch4j: Def.Initialize[Task[File]] = Def.task {
-    val outputdir = target.value / "launcher"
+    val outputdir = (target in buildLauncher).value
     val distdir = outputdir / "build"
     val configXml = outputdir / "launch4j.xml"
     val classpath = distdir / "lib"
@@ -45,7 +46,7 @@ object Launch4jPlugin extends AutoPlugin {
     val outfile = distdir / launcherExecutableFilename .value
 
     // clean directory
-    IO.delete(outputdir)
+    IO.delete(distdir)
     distdir.mkdirs()
 
     // copy the project artifact and all dependencies to /lib
@@ -116,14 +117,14 @@ object Launch4jPlugin extends AutoPlugin {
 
   private def runCompress: Def.Initialize[Task[File]] = Def.task {
     val compressSourceDirectory = buildLauncher.value
-    val compressBaseDirectory = target.value / "compress"
+    val compressTargetDirectory = (target in buildLauncher).value / "compress"
     val compressTargetDirectoryName = s"${name.value}-${version.value}"
-    val compressTargetFile = compressBaseDirectory / s"${name.value}.7z"
-    val sfxTargetFile = compressBaseDirectory / sfxTargetFilename.value
+    val compressTargetFile = compressTargetDirectory / s"${name.value}.7z"
+    val sfxTargetFile = compressTargetDirectory / sfxTargetFilename.value
 
     // clean directory
-    IO.delete(compressBaseDirectory)
-    compressBaseDirectory.mkdirs()
+    IO.delete(compressTargetDirectory)
+    compressTargetDirectory.mkdirs()
 
     val sfxURL =  getClass.getClassLoader.getResource("sfx/windows/7z.sfx")
 
