@@ -1,6 +1,7 @@
 package org.trupkin
 
-import java.io.{File, SequenceInputStream, BufferedInputStream, FileInputStream}
+import java.io.File
+import java.io._
 import java.nio.file.Files
 import org.apache.commons.compress.archivers.sevenz._
 
@@ -12,6 +13,7 @@ object Import {
   val buildSfx = TaskKey[File]("build-sfx", "Create self extracting")
   val buildLauncher = TaskKey[File]("build-launcher", "Create launch4j wrapper")
 
+  val jreHome = SettingKey[File]("jre-home", "Location of jre runtime")
   val launcherExecutableFilename = SettingKey[String]("launcher-executable-filename", "Launcher executable filename")
   val sfxTargetFilename = SettingKey[String]("sxf-target-filename", "Self extracting filename")
 }
@@ -28,7 +30,10 @@ object Launch4jPlugin extends AutoPlugin {
     buildSfx := runCompress.value,
     mainClass in buildLauncher := None,
     sfxTargetFilename := s"${name.value}-${version.value}.exe",
-    launcherExecutableFilename := s"${name.value}.exe"
+    launcherExecutableFilename := s"${name.value}.exe",
+    jreHome := new java.io.File(Option(System.getenv("JAVA_HOME")).getOrElse {
+      throw new IllegalStateException("Missing JAVA_HOME")
+    }) / "jre"
   )
 
   private def runLaunch4j: Def.Initialize[Task[File]] = Def.task {
@@ -53,17 +58,14 @@ object Launch4jPlugin extends AutoPlugin {
     }
 
     // package jre
-    val java = new File(Option(System.getenv("JAVA_HOME")).getOrElse {
-      throw new IllegalStateException("Missing JAVA_HOME")
-    })
-    val jre = java / "jre"
+    val jre = jreHome.value
     val jreFiles = for {
       file <- jre.***.get //if file.isFile
-      name <- file.relativeTo(java)
+      name <- file.relativeTo(jre)
     } yield file -> name.toString
 
     IO.copy {
-      jreFiles.map { case (file: File, path: String) => (file, distdir / path) }
+      jreFiles.map { case (file: File, path: String) => (file, distdir / "jre" / path) }
     }
 
     val conf = new Config()
