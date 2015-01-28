@@ -1,7 +1,7 @@
 # SBT-LAUNCH4j
 Create an executable for your jvm application without requiring a JRE to be previously installed.
 
-Uses [lauch4j](http://launch4j.sourceforge.net) to create an executable wrapper for your jvm based project.
+Uses [launch4j](http://launch4j.sourceforge.net) to create an executable wrapper for your jvm based project.
 
 ## Project Setup
 Create a new file in your project at `./project/launcher.sbt` and add the following lines.
