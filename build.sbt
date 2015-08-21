@@ -6,7 +6,7 @@ name := "sbt-launch4j"
 
 organization := "org.trupkin"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.5"
 
 licenses += ("BSD", url("http://www.opensource.org/licenses/bsd-license.html"))
 

@@ -105,7 +105,7 @@ object Launch4jPlugin extends AutoPlugin {
     persister.save(configXml)
 
     // extract launch4j executable
-    val url = getClass.getClassLoader.getResource("launch4j-3.5-win32.zip")
+    val url = getClass.getClassLoader.getResource("launch4j-3.7-win32.zip")
     IO.unzipURL(url, outputdir)
 
     // run launch4j
