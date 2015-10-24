@@ -3,6 +3,7 @@ package org.trupkin
 import java.io.File
 import java.io._
 import java.nio.file.Files
+import net.sf.launch4j.{Log, Builder}
 import org.apache.commons.compress.archivers.sevenz._
 
 import net.sf.launch4j.config._
@@ -28,7 +29,7 @@ object Launch4jPlugin extends AutoPlugin {
   override val projectSettings = Seq(
     buildLauncher := runLaunch4j.value,
     buildSfx := runCompress.value,
-    (target in buildLauncher) :=  target.value / "launcher",
+    (target in buildLauncher) :=  target.value / "sbt-launch4j",
     mainClass in buildLauncher := None,
     sfxTargetFilename := s"${name.value}-${version.value}.exe",
     launcherExecutableFilename := s"${name.value}.exe",
@@ -39,15 +40,17 @@ object Launch4jPlugin extends AutoPlugin {
 
   private def runLaunch4j: Def.Initialize[Task[File]] = Def.task {
     val outputdir = (target in buildLauncher).value
-    val distdir = outputdir / "build"
-    val configXml = outputdir / "launch4j.xml"
+    val launch4jUtilDir = outputdir / "launch4j-util"
+    val distdir = outputdir / "app"
+    val configXml = launch4jUtilDir / "launch4j.xml"
     val classpath = distdir / "lib"
-    val launch4jExecutable = outputdir / "launch4j" / "launch4jc.exe"
+    val launch4jExecutable = launch4jUtilDir / "launch4j" / "launch4jc.exe"
     val outfile = distdir / launcherExecutableFilename .value
 
     // clean directory
     IO.delete(distdir)
     distdir.mkdirs()
+    launch4jUtilDir.mkdirs()
 
     // copy the project artifact and all dependencies to /lib
     val jars = {
@@ -69,9 +72,12 @@ object Launch4jPlugin extends AutoPlugin {
       jreFiles.map { case (file: File, path: String) => (file, distdir / "jre" / path) }
     }
 
-    val conf = new Config()
+    ConfigPersister.getInstance.createBlank()
+    val conf: Config = ConfigPersister.getInstance.getConfig
     conf.setOutfile(outfile)
     conf.setDontWrapJar(true)
+    conf.setHeaderType("console")
+    conf.setStayAlive(true)
     conf.setClassPath {
       val paths = for {
         jar <- jars
@@ -95,6 +101,7 @@ object Launch4jPlugin extends AutoPlugin {
     conf.setJre {
       val jre = new Jre()
       jre.setPath("jre")
+      jre.setBundledJre64Bit(true)
       jre
     }
     conf.validate()
@@ -104,9 +111,16 @@ object Launch4jPlugin extends AutoPlugin {
     persister.setAntConfig(conf, baseDirectory.value)
     persister.save(configXml)
 
+
+    // The launch4j jar dependency does not contain
+    // all the resources required to run it.
+    // The jar assumes that a launch4j installation exists.
+    // Otherwise we could do this:
+    // new Builder(Log.getConsoleLog).build()
+
     // extract launch4j executable
-    val url = getClass.getClassLoader.getResource("launch4j-3.7-win32.zip")
-    IO.unzipURL(url, outputdir)
+    val url = getClass.getClassLoader.getResource("launch4j-3.8-win32.zip")
+    IO.unzipURL(url, launch4jUtilDir)
 
     // run launch4j
     val command = Process(launch4jExecutable.absolutePath, Seq(configXml.absolutePath))
@@ -117,10 +131,10 @@ object Launch4jPlugin extends AutoPlugin {
 
   private def runCompress: Def.Initialize[Task[File]] = Def.task {
     val compressSourceDirectory = buildLauncher.value
-    val compressTargetDirectory = (target in buildLauncher).value / "compress"
+    val compressTargetDirectory = (target in buildLauncher).value / "zip"
     val compressTargetDirectoryName = s"${name.value}-${version.value}"
     val compressTargetFile = compressTargetDirectory / s"${name.value}.7z"
-    val sfxTargetFile = compressTargetDirectory / sfxTargetFilename.value
+    val sfxTargetFile = (target in buildLauncher).value / sfxTargetFilename.value
 
     // clean directory
     IO.delete(compressTargetDirectory)
