@@ -76,7 +76,7 @@ object Launch4jPlugin extends AutoPlugin {
     val conf: Config = ConfigPersister.getInstance.getConfig
     conf.setOutfile(outfile)
     conf.setDontWrapJar(true)
-    conf.setHeaderType("console")
+    conf.setHeaderType("gui")
     conf.setStayAlive(true)
     conf.setClassPath {
       val paths = for {
