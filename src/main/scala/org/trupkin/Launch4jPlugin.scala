@@ -47,9 +47,11 @@ object Launch4jPlugin extends AutoPlugin {
     val launch4jExecutable = launch4jUtilDir / "launch4j" / "launch4jc.exe"
     val outfile = distdir / launcherExecutableFilename .value
 
-    // clean directory
+    // clean directories
     IO.delete(distdir)
     distdir.mkdirs()
+
+    IO.delete(launch4jUtilDir)
     launch4jUtilDir.mkdirs()
 
     // copy the project artifact and all dependencies to /lib
@@ -136,11 +138,12 @@ object Launch4jPlugin extends AutoPlugin {
     val compressTargetFile = compressTargetDirectory / s"${name.value}.7z"
     val sfxTargetFile = (target in buildLauncher).value / sfxTargetFilename.value
 
-    // clean directory
+    // clean 
     IO.delete(compressTargetDirectory)
     compressTargetDirectory.mkdirs()
+    IO.delete(sfxTargetFile)
 
-    val sfxURL =  getClass.getClassLoader.getResource("sfx/windows/7z.sfx")
+    val sfxURL = getClass.getClassLoader.getResource("sfx/windows/7z.sfx")
 
     // compress distribution
     val compressFiles = for {
