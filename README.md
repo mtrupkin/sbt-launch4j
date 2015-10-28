@@ -8,7 +8,7 @@ Create a new file in your project at `./project/launcher.sbt` and add the follow
 
     resolvers += Resolver.url("org.trupkin sbt plugins", url("http://dl.bintray.com/mtrupkin/sbt-plugins/"))(Resolver.ivyStylePatterns)
 
-    addSbtPlugin("org.trupkin" % "sbt-launch4j" % "0.0.7")  
+    addSbtPlugin("org.trupkin" % "sbt-launch4j" % "0.0.8")  
 
 ## Usage
 The `build-sfx` task is now available.  It creates a self extracting zip file in the `./target/sbt-launch4j` directory. The zip file contains the generated executable wrapper, the application jar and it's dependencies.
