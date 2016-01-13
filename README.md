@@ -6,7 +6,10 @@ Uses [launch4j](http://launch4j.sourceforge.net) to create an executable wrapper
 ## Project Setup
 Create a new file in your project at `./project/launcher.sbt` and add the following lines.
 
-    resolvers += Resolver.url("org.trupkin sbt plugins", url("http://dl.bintray.com/mtrupkin/sbt-plugins/"))(Resolver.ivyStylePatterns)
+    resolvers ++= Seq(
+		Resolver.url("org.trupkin sbt plugins", url("http://dl.bintray.com/mtrupkin/sbt-plugins/"))(Resolver.ivyStylePatterns),
+		"SpringSource" at "http://repository.springsource.com/maven/bundles/external"
+	)
 
     addSbtPlugin("org.trupkin" % "sbt-launch4j" % "0.0.8")  
 
